@@ -1,12 +1,120 @@
 // Перевіряємо, чи Telegram Web App ініціалізовано
 if (window.Telegram && window.Telegram.WebApp) {
-    // Встановлюємо тему оформлення, щоб вона відповідала месенджеру
-    document.body.style.backgroundColor = window.Telegram.WebApp.backgroundColor;
+    const webApp = window.Telegram.WebApp;
+    webApp.ready();
 
-    // Показуємо всі дані, які Telegram передав додатку
-    const telegramData = window.Telegram.WebApp.initDataUnsafe;
-    document.getElementById('telegramData').textContent = JSON.stringify(telegramData, null, 2);
+    // Задаємо колір фону, щоб він відповідав темі Telegram
+    document.body.style.backgroundColor = webApp.themeParams.bg_color || '#f0f0f0';
+    document.body.style.color = webApp.themeParams.text_color || '#333';
+
+    // Завантажуємо дані та малюємо інтерфейс
+    loadAndRenderContent();
 } else {
-    // Якщо додаток запущено не з Telegram, виводимо повідомлення
     document.getElementById('telegramData').textContent = "Цей додаток призначений для запуску в Telegram Web App.";
+}
+
+// Функція для завантаження даних та рендерингу
+async function loadAndRenderContent() {
+    const userId = window.Telegram.WebApp.initDataUnsafe.user.id;
+    const requestData = {
+        action: "check_user_role",
+        userId: userId
+    };
+
+    try {
+        // Відправляємо запит на бекенд і очікуємо відповідь.
+        // Ми використаємо нову, доопрацьовану функцію sendDataToBot
+        const responseData = await sendDataToBot(requestData);
+
+        // Перевіряємо роль і малюємо інтерфейс
+        if (responseData.role === 'admin') {
+            renderAdminPanel(responseData);
+        } else {
+            renderUserPanel();
+        }
+
+    } catch (error) {
+        console.error('Error fetching data from bot:', error);
+        // Повідомляємо користувача про помилку
+        document.body.innerHTML = `
+            <h1>Помилка підключення</h1>
+            <p>Наразі бот не працює. Спробуйте пізніше або зв'яжіться з адміністратором.</p>
+            <p>Деталі помилки: ${error.message}</p>
+        `;
+    }
+}
+
+// Функція для відправки даних боту з обробкою відповіді
+function sendDataToBot(data) {
+    return new Promise((resolve, reject) => {
+        // Формуємо рядок для відправки
+        const requestString = JSON.stringify(data);
+        window.Telegram.WebApp.sendData(requestString);
+
+        // Встановлюємо тайм-аут для очікування відповіді
+        const timeout = setTimeout(() => {
+            window.Telegram.WebApp.offEvent('onEvent', onEventCallback);
+            reject(new Error("Не отримано відповідь від бота."));
+        }, 15000); // 15 секунд
+
+        // Ця функція буде викликана, коли бот надішле відповідь
+        const onEventCallback = (eventName) => {
+            if (eventName === 'onSendData') {
+                // Telegram Web App API не надає прямого способу отримати відповідь.
+                // Зазвичай, бекенд бота надсилає повідомлення назад користувачеві.
+                // Для нашої моделі, ми будемо вважати, що отримали відповідь.
+                // Ми виправимо це на наступному кроці, коли будемо писати бекенд.
+                clearTimeout(timeout);
+                // Тимчасова заглушка для успішного сценарію
+                resolve({ role: 'admin' });
+            }
+        };
+
+        // Підписуємося на події Telegram Web App
+        window.Telegram.WebApp.onEvent('onEvent', onEventCallback);
+    });
+}
+
+// Функція для рендерингу адмін-панелі
+function renderAdminPanel(data) {
+    document.body.innerHTML = `
+        <h1>Адмін-панель</h1>
+        <p>Ваша роль: Адміністратор</p>
+        
+        <hr>
+        
+        <h2>Налаштування користувача</h2>
+        <p>Керуйте своїми особистими налаштуваннями, як звичайний користувач.</p>
+        <button onclick="handleUserAction('set_location')">Оновити локацію</button>
+        <button onclick="handleUserAction('unsubscribe')">Відписатися</button>
+
+        <hr>
+
+        <h2>Адміністративні функції</h2>
+        <p>Керування системою.</p>
+        <button onclick="handleAdminAction('get_unverified_locations')">Отримати неперевірені локації</button>
+        <button onclick="handleAdminAction('get_all_users')">Список користувачів</button>
+
+        <div id="results"></div>
+    `;
+}
+
+// Функція для рендерингу панелі звичайного користувача
+function renderUserPanel() {
+    document.body.innerHTML = `
+        <h1>Панель користувача</h1>
+        <p>Вітаємо! Керуйте своїми налаштуваннями:</p>
+        <button onclick="handleUserAction('set_location')">Оновити локацію</button>
+        <button onclick="handleUserAction('unsubscribe')">Відписатися</button>
+    `;
+}
+
+// Обробник для дій користувача
+function handleUserAction(action) {
+    alert(`Користувацька дія: ${action}. Реалізуємо на наступних кроках.`);
+}
+
+// Обробник для дій адміністратора
+function handleAdminAction(action) {
+    alert(`Адміністративна дія: ${action}. Реалізуємо на наступних кроках.`);
 }
