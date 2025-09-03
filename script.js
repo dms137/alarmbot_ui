@@ -7,20 +7,57 @@ if (window.Telegram && window.Telegram.WebApp) {
     document.body.style.backgroundColor = webApp.themeParams.bg_color || '#f0f0f0';
     document.body.style.color = webApp.themeParams.text_color || '#333';
 
-    // Додаткова перевірка наявності даних про користувача
-    if (webApp.initDataUnsafe && webApp.initDataUnsafe.user) {
-        loadAndRenderContent();
-    } else {
-        document.body.innerHTML = `
-            <h1>Помилка</h1>
-            <p>Не вдалося отримати дані про користувача. Переконайтеся, що ви відкрили додаток зсередини Telegram.</p>
-        `;
+ // Додаткова перевірка наявності даних про користувача
+ if (webApp.initDataUnsafe && webApp.initDataUnsafe.user) {
+    // Ми будемо використовувати MainButton, щоб ініціювати відправку даних
+    if (webApp.MainButton) {
+        webApp.MainButton.text = "Відправити запит";
+        webApp.MainButton.show();
+        
+        webApp.MainButton.onClick(async () => {
+            // Ховаємо кнопку, щоб уникнути повторних натискань
+            webApp.MainButton.hide(); 
+            
+            // Вмикаємо індикатор завантаження
+            webApp.MainButton.showProgress();
+
+            try {
+                const userId = webApp.initDataUnsafe.user.id;
+                const requestData = {
+                    action: "check_user_role",
+                    userId: userId
+                };
+                const responseData = await sendDataToBot(requestData);
+                
+                if (responseData.role === 'admin') {
+                    renderAdminPanel(responseData);
+                } else {
+                    renderUserPanel();
+                }
+            } catch (error) {
+                console.error('Error fetching data from bot:', error);
+                document.body.innerHTML = `
+                    <h1>Помилка підключення</h1>
+                    <p>Наразі бот не працює. Спробуйте пізніше або зв'яжіться з адміністратором.</p>
+                    <p>Деталі помилки: ${error.message}</p>
+                `;
+            } finally {
+                // Вимикаємо індикатор завантаження
+                webApp.MainButton.hideProgress();
+            }
+        });
     }
 } else {
     document.body.innerHTML = `
         <h1>Помилка</h1>
-        <p>Цей додаток призначений для запуску в Telegram Web App.</p>
+        <p>Не вдалося отримати дані про користувача. Переконайтеся, що ви відкрили додаток зсередини Telegram.</p>
     `;
+}
+} else {
+document.body.innerHTML = `
+    <h1>Помилка</h1>
+    <p>Цей додаток призначений для запуску в Telegram Web App.</p>
+`;
 }
 
 // Функція для завантаження даних та рендерингу
