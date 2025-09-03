@@ -7,10 +7,20 @@ if (window.Telegram && window.Telegram.WebApp) {
     document.body.style.backgroundColor = webApp.themeParams.bg_color || '#f0f0f0';
     document.body.style.color = webApp.themeParams.text_color || '#333';
 
-    // Завантажуємо дані та малюємо інтерфейс
-    loadAndRenderContent();
+    // Додаткова перевірка наявності даних про користувача
+    if (webApp.initDataUnsafe && webApp.initDataUnsafe.user) {
+        loadAndRenderContent();
+    } else {
+        document.body.innerHTML = `
+            <h1>Помилка</h1>
+            <p>Не вдалося отримати дані про користувача. Переконайтеся, що ви відкрили додаток зсередини Telegram.</p>
+        `;
+    }
 } else {
-    document.getElementById('telegramData').textContent = "Цей додаток призначений для запуску в Telegram Web App.";
+    document.body.innerHTML = `
+        <h1>Помилка</h1>
+        <p>Цей додаток призначений для запуску в Telegram Web App.</p>
+    `;
 }
 
 // Функція для завантаження даних та рендерингу
@@ -47,8 +57,8 @@ async function loadAndRenderContent() {
 // Функція для відправки даних боту з обробкою відповіді
 function sendDataToBot(data) {
     return new Promise((resolve, reject) => {
-        // Формуємо рядок для відправки
-        const requestString = JSON.stringify(data);
+        // Додаємо префікс "webapp_data " до JSON-рядка
+        const requestString = "webapp_data " + JSON.stringify(data);
         window.Telegram.WebApp.sendData(requestString);
 
         // Встановлюємо тайм-аут для очікування відповіді
